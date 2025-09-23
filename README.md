@@ -1,43 +1,73 @@
-<<<<<<< HEAD
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/26466516/107675802-36216b80-6c77-11eb-8db1-4d3407dc53d9.png" alt="Next.js and TypeScript">
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/static/v1?label=PRs&message=welcome&style=for-the-badge&color=24B36B&labelColor=000000" alt="PRs welcome!" />
-
-  <img alt="License" src="https://img.shields.io/github/license/chhpt/typescript-nextjs-starter?style=for-the-badge&color=24B36B&labelColor=000000">
-
-  <a href="https://twitter.com/intent/follow?screen_name=cwuyiqing">
-    <img src="https://img.shields.io/twitter/follow/cwuyiqing?style=for-the-badge&color=24B36B&labelColor=000000" alt="Follow @chhpt" />
-  </a>
-</p>
-
-<br>
 
 # House Rental Plarform Build On ONINO Blockchain
 
-Speedily develope your decentralized application with this NextJs starter kit for free. It has Redux-Toolkit, NextJs 13, React 18, Hardhat, EthersJs, Tailwind, etc.
+A decentralized apartment rental application built on ONINO (ONINI Testnet compatible). RentalDapp allows apartment owners to list properties, while tenants can book, pay securely and leave reviews  all powered by smart contracts and decentralized technologies.
 
-Follow the steps below to download, install, and run this project.
+## Features
+Apartment Management
 
-## Dependencies
+Create, update, and delete apartment listings
 
-Install these prerequisites to follow along with the tutorial. See free video tutorial or a full explanation of each prerequisite.
+Upload apartment details: name, description, location, images, rooms, and price
 
-- NPM: https://nodejs.org
-- EthersJs: https://ethers.org/
-- Tailwind CSS: https://tailwindcss.com/
+Booking System
+
+Book apartments by selecting dates
+
+Pay rent directly via smart contract
+
+Automatic security fee handling
+
+Check-in & refund functionalities
+
+Review System
+
+Tenants can leave verified reviews after bookings
+
+Display reviews with timestamps and user identity
+
+Blockchain Integration
+
+Powered by ONINO Testnet smart contracts
+
+Secure payments with ethers.js
+
+Wallet connection via RainbowKit + Wagmi
+
+UI/UX
+
+Built with Next.js + TailwindCSS
+
+Smooth interactions with React, Redux Toolkits.
+
+Responsive design for desktop & mobile
+
+## Tech Stack
+
+Frontend: Next.js, React, TailwindCSS, Redux Toolkit
+
+Smart Contracts: Solidity, Hardhat, OpenZeppelin
+
+Blockchain Tools: Ethers.js, Wagmi, RainbowKit, Viem
+
+Database/Storage: Lokijs (local in-memory)
+
+Utilities: Moment.js, React-Icons, React-Datepicker
+
+## Installation
 
 ## Step 1. Clone the project
 
-`git clonehttps://github.com/Dev-Oud/RentalDapp<PROJECT NAME>`
+git clone git clonehttps://github.com/Dev-Oud/RentalDapp<PROJECT NAME>
+cd RentalDapp
+
+
 
 ## Step 2. Install dependencies
 
 ```sh
-$ cd <PROJECT NAME>
+$ cd RentalDapp
 $ yarn install # or npm install
 ```
 
@@ -54,10 +84,38 @@ $ yarn hardhat node
 `$ yarn dev`
 Visit this URL in your browser: http://localhost:3000
 
-=======
 
-# House-RentalDapp
+## Deployment
 
-A Decentralized House Rental platform
 
-> > > > > > > a43f40f9a7aaf2294941908effb566a8a3580bf5
+Build for production:
+```sh
+$ npm run build
+$ npm start
+
+```
+ Smart contracts are deployed using Hardhat:
+```sh
+$ npx hardhat run scripts/deploy.js --network testnet
+
+```
+## Testing
+Run Hardhat tests:
+```sh
+$ npx hardhat test
+```
+## Contribution
+
+Contributions, issues, and feature requests are welcome!
+Feel free to fork the repo and submit a pull request
+
+## License
+This project is licensed under the MIT License.
+
+## Author
+
+Masud Umar Muhammad
+
+GitHub: https://github.com/Dev-Oud
+
+Twitter: https://x.com/Masud_eth_
