@@ -4,6 +4,7 @@ import { truncate } from '@/utils/helper'
 import { toast } from 'react-toastify'
 import { useRouter } from 'next/router'
 import { useAccount } from 'wagmi'
+import { createApartment } from '@/services/blockchain'
 
 export default function Add() {
   const { address } = useAccount()
@@ -18,7 +19,7 @@ export default function Add() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name || !location || !description || !rooms || links.length <= 1 || !price) return
+    if (!name || !location || !description || !rooms || links.length != 5 || !price) return
 
     const params = {
       name,
@@ -31,12 +32,12 @@ export default function Add() {
 
     await toast.promise(
       new Promise(async (resolve, reject) => {
-         await createApartment(params)
-           .then(async () => {
-             navigate.push('/')
-             resolve()
-           })
-           .catch(() => reject())
+        await createApartment(params)
+          .then(async () => {
+            navigate.push('/')
+            resolve()
+          })
+          .catch(() => reject())
       }),
       {
         pending: 'Approve transaction...',
@@ -63,7 +64,7 @@ export default function Add() {
       <div className="w-11/12 md:w-2/5 h-7/12 p-6">
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex justify-center items-center">
-            <p className="font-semibold text-black">Add Appartment</p>
+            <p className="font-semibold text-black">Add Room</p>
           </div>
 
           <div className="flex flex-row justify-between items-center border border-gray-300 p-2 rounded-xl mt-5">
@@ -89,7 +90,7 @@ export default function Add() {
               step={0.01}
               min={0.01}
               name="price"
-              placeholder="Price (ONI)"
+              placeholder="Price (ETH)"
               onChange={(e) => setPrice(e.target.value)}
               value={price}
               required

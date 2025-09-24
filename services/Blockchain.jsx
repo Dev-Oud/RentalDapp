@@ -1,123 +1,113 @@
-// src/blockchain.js
 import { ethers } from 'ethers'
 import { store } from '@/store'
 import { globalActions } from '@/store/globalSlices'
 import address from '@/contracts/contractAddress.json'
 import RentalDappAbi from '@/artifacts/contracts/RentalDapp.sol/RentalDapp.json'
 
+const toWei = (num) => ethers.parseEther(num.toString())
+const fromWei = (num) => ethers.formatEther(num)
+
+let ethereum, tx
+
+if (typeof window !== 'undefined') ethereum = window.ethereum
 const { setBookings, setTimestamps, setReviews } = globalActions
 
-// ethers v6 helpers
-const toWei = (num) => ethers.parseEther(num.toString()) // returns BigInt
-const fromWei = (num) => ethers.formatEther(num) // returns string
+const getEthereumContracts = async () => {
+  const accounts = await ethereum?.request?.({ method: 'eth_accounts' })
 
-// minimal ERC-20 ABI used for allowance/approve/decimals
-const ERC20_ABI = [
-  'function approve(address spender, uint256 amount) external returns (bool)',
-  'function allowance(address owner, address spender) external view returns (uint256)',
-  'function decimals() external view returns (uint8)',
-  'function balanceOf(address account) external view returns (uint256)',
-]
-
-/**
- * Get contract instance
- * withSigner = true -> returns contract connected to user's signer (wallet)
- * withSigner = false -> returns contract connected to a read-only JSON-RPC provider
- */
-const getContract = async (withSigner = false) => {
-  // contract address key in your address JSON (adjust if necessary)
-  const contractAddress = address.RentalDappContract || address.dappBnbContract
-
-  if (withSigner && typeof window !== 'undefined' && window.ethereum) {
-    // Browser wallet (MetaMask / injected)
-    const provider = new ethers.BrowserProvider(window.ethereum)
-    // prompt for accounts if not already authorized
-    try {
-      await provider.send('eth_requestAccounts', [])
-    } catch (err) {
-      // user refused or provider error
-      throw new Error('Wallet connection required')
-    }
+  if (accounts?.length > 0) {
+    const provider = new ethers.BrowserProvider(ethereum)
     const signer = await provider.getSigner()
-    return new ethers.Contract(contractAddress, RentalDappAbi.abi, signer)
-  }
+    const contracts = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
 
-  // fallback read-only provider
-  const rpc = process.env.NEXT_PUBLIC_RPC_URL || 'https://rpctestnet.onino.io'
-  const provider = new ethers.JsonRpcProvider(rpc)
-  return new ethers.Contract(contractAddress, RentalDappAbi.abi, provider)
+    return contracts
+  } else {
+    const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL)
+    const wallet = ethers.Wallet.createRandom()
+    const signer = wallet.connect(provider)
+    const contracts = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
+
+    return contracts
+  }
 }
 
-/* ------------------- READ FUNCTIONS ------------------- */
-
 const getApartments = async () => {
-  const contract = await getContract(false)
+  const contract = await getEthereumContracts()
   const apartments = await contract.getApartments()
   return structureAppartments(apartments)
 }
 
 const getApartment = async (id) => {
-  const contract = await getContract(false)
-  const apt = await contract.getApartment(id)
-  return structureAppartments([apt])[0]
+  const contract = await getEthereumContracts()
+  const apartment = await contract.getApartment(id)
+  return structureAppartments([apartment])[0]
 }
 
 const getBookings = async (id) => {
-  const contract = await getContract(false)
+  const contract = await getEthereumContracts()
   const bookings = await contract.getBookings(id)
   return structuredBookings(bookings)
 }
 
 const getQualifiedReviewers = async (id) => {
-  const contract = await getContract(false)
-  return await contract.getQualifiedReviewers(id)
+  const contract = await getEthereumContracts()
+  const bookings = await contract.getQualifiedReviewers(id)
+  return bookings
 }
 
 const getReviews = async (id) => {
-  const contract = await getContract(false)
-  const reviews = await contract.getReviews(id)
-  return structuredReviews(reviews)
+  const contract = await getEthereumContracts()
+  const reviewers = await contract.getReviews(id)
+  return structuredReviews(reviewers)
 }
 
 const getBookedDates = async (id) => {
-  const contract = await getContract(false)
-  const dates = await contract.getUnavailableDates(id)
-  return dates.map((ts) => Number(ts))
+  const contract = await getEthereumContracts()
+  const bookings = await contract.getUnavailableDates(id)
+  const timestamps = bookings.map((timestamp) => Number(timestamp))
+  return timestamps
 }
 
 const getSecurityFee = async () => {
-  const contract = await getContract(false)
+  const contract = await getEthereumContracts()
   const fee = await contract.securityFee()
-  return Number(fee) // percentage
+  return Number(fee)
 }
 
-/* ------------------- WRITE FUNCTIONS ------------------- */
-
-/**
- * createApartment / update / delete are unchanged (they don't involve token transfers)
- */
 const createApartment = async (apartment) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.createAppartment(
+    const contract = await getEthereumContracts()
+    tx = await contract.createAppartment(
       apartment.name,
       apartment.description,
       apartment.location,
       apartment.images,
       apartment.rooms,
-      toWei(apartment.price) // pass BigInt
+      toWei(apartment.price)
     )
     await tx.wait()
-    return tx
+
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
 const updateApartment = async (apartment) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.updateAppartment(
+    const contract = await getEthereumContracts()
+    tx = await contract.updateAppartment(
       apartment.id,
       apartment.name,
       apartment.description,
@@ -127,119 +117,117 @@ const updateApartment = async (apartment) => {
       toWei(apartment.price)
     )
     await tx.wait()
-    return tx
+
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
 const deleteApartment = async (aid) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.deleteAppartment(aid)
+    const contract = await getEthereumContracts()
+    tx = await contract.deleteAppartment(aid)
     await tx.wait()
-    return tx
+
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
-/**
- * bookApartment (ERC20 flow)
- *  - reads apartment.price (per-night) from contract (token smallest unit)
- *  - computes total required = totalRent + securityDeposit
- *  - ensures user approved the contract to spend required tokens
- *  - calls contract.bookApartment(aid, timestamps) (no native value)
- */
-const bookApartment = async ({ aid, timestamps }) => {
+const bookApartment = async ({ aid, timestamps, amount }) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const signer = contract.signer
-    const userAddress = await signer.getAddress()
-    const contractAddress = contract.target || contract.address // BrowserProvider returns .target in some contexts
+    const contract = await getEthereumContracts()
+    tx = await contract.bookApartment(aid, timestamps, {
+      value: toWei(amount),
+    })
 
-    // get payment token address from contract
-    const paymentTokenAddress = await contract.paymentToken()
-    if (!paymentTokenAddress || paymentTokenAddress === ethers.ZeroAddress) {
-      throw new Error('Payment token not configured on contract')
-    }
-
-    // read per-night price (BigInt) from contract
-    const apt = await contract.getApartment(aid)
-    const perNight = BigInt(apt.price) // already in token smallest units (BigInt)
-    const nights = BigInt(timestamps.length)
-
-    // compute totals
-    const totalRent = perNight * nights
-    const securityPercent = BigInt(await contract.securityFee()) // integer percent
-    const deposit = (totalRent * securityPercent) / BigInt(100)
-    const totalRequired = totalRent + deposit
-
-    // token contract (connected to signer)
-    const token = new ethers.Contract(paymentTokenAddress, ERC20_ABI, signer)
-
-    // check allowance
-    const allowance = await token.allowance(userAddress, contractAddress)
-    if (BigInt(allowance) < BigInt(totalRequired)) {
-      // approve required amount (you could alternatively approve a large allowance to avoid repeated approvals)
-      const approveTx = await token.approve(contractAddress, totalRequired)
-      await approveTx.wait()
-    }
-
-    // call booking (contract will call safeTransferFrom to pull tokens)
-    const tx = await contract.bookApartment(aid, timestamps)
     await tx.wait()
-
-    // refresh booked dates in app state
     const bookedDates = await getBookedDates(aid)
-    store.dispatch(setTimestamps(bookedDates))
 
-    return tx
+    store.dispatch(setTimestamps(bookedDates))
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
-const checkInApartment = async (aid, bookingId) => {
+const checkInApartment = async (aid, timestamps) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.checkInApartment(aid, bookingId)
+    const contract = await getEthereumContracts()
+    tx = await contract.checkInApartment(aid, timestamps)
+
     await tx.wait()
     const bookings = await getBookings(aid)
+
     store.dispatch(setBookings(bookings))
-    return tx
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
 const refundBooking = async (aid, bookingId) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.refundBooking(aid, bookingId)
+    const contract = await getEthereumContracts()
+    tx = await contract.refundBooking(aid, bookingId)
+
     await tx.wait()
     const bookings = await getBookings(aid)
+
     store.dispatch(setBookings(bookings))
-    return tx
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
 
 const addReview = async (aid, comment) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
   try {
-    const contract = await getContract(true)
-    const tx = await contract.addReview(aid, comment)
+    const contract = await getEthereumContracts()
+    tx = await contract.addReview(aid, comment)
+
     await tx.wait()
     const reviews = await getReviews(aid)
+
     store.dispatch(setReviews(reviews))
-    return tx
+    return Promise.resolve(tx)
   } catch (error) {
+    reportError(error)
     return Promise.reject(error)
   }
 }
-
-/* ------------------- HELPERS / STRUCTURERS ------------------- */
 
 const structureAppartments = (appartments) =>
   appartments.map((appartment) => ({
@@ -248,10 +236,9 @@ const structureAppartments = (appartments) =>
     owner: appartment.owner,
     description: appartment.description,
     location: appartment.location,
-    // keep price as string (safe) — convert to number only where UI expects it
     price: fromWei(appartment.price),
     deleted: appartment.deleted,
-    images: appartment.images ? String(appartment.images).split(',') : [],
+    images: appartment.images.split(','),
     rooms: Number(appartment.rooms),
     timestamp: Number(appartment.timestamp),
     booked: appartment.booked,
