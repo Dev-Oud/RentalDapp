@@ -1,16 +1,16 @@
 import { ethers } from 'ethers'
-import { store } from '@/store'
-import { globalActions } from '@/store/globalSlices'
 import address from '@/contracts/contractAddress.json'
 import RentalDappAbi from '@/artifacts/contracts/RentalDapp.sol/RentalDapp.json'
+import { globalActions } from '@/store/globalSlices'
+import { store } from '@/store'
 
 const toWei = (num) => ethers.parseEther(num.toString())
 const fromWei = (num) => ethers.formatEther(num)
 
 let ethereum, tx
+const { setTimestamps, setBookings, setReviews } = globalActions
 
 if (typeof window !== 'undefined') ethereum = window.ethereum
-const { setBookings, setTimestamps, setReviews } = globalActions
 
 const getEthereumContracts = async () => {
   const accounts = await ethereum?.request?.({ method: 'eth_accounts' })
@@ -18,16 +18,14 @@ const getEthereumContracts = async () => {
   if (accounts?.length > 0) {
     const provider = new ethers.BrowserProvider(ethereum)
     const signer = await provider.getSigner()
-    const contracts = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
-
-    return contracts
+    const contract = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
+    return contract
   } else {
     const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL)
     const wallet = ethers.Wallet.createRandom()
     const signer = wallet.connect(provider)
-    const contracts = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
-
-    return contracts
+    const contract = new ethers.Contract(address.RentalDappContract, RentalDappAbi.abi, signer)
+    return contract
   }
 }
 
@@ -43,6 +41,12 @@ const getApartment = async (id) => {
   return structureAppartments([apartment])[0]
 }
 
+const getReviews = async (id) => {
+  const contract = await getEthereumContracts()
+  const reviews = await contract.getReviews(id)
+  return structuredReviews(reviews)
+}
+
 const getBookings = async (id) => {
   const contract = await getEthereumContracts()
   const bookings = await contract.getBookings(id)
@@ -51,14 +55,8 @@ const getBookings = async (id) => {
 
 const getQualifiedReviewers = async (id) => {
   const contract = await getEthereumContracts()
-  const bookings = await contract.getQualifiedReviewers(id)
-  return bookings
-}
-
-const getReviews = async (id) => {
-  const contract = await getEthereumContracts()
-  const reviewers = await contract.getReviews(id)
-  return structuredReviews(reviewers)
+  const reviewers = await contract.getQualifiedReviewers(id)
+  return reviewers
 }
 
 const getBookedDates = async (id) => {
@@ -99,6 +97,7 @@ const createApartment = async (apartment) => {
   }
 }
 
+
 const updateApartment = async (apartment) => {
   if (!ethereum) {
     reportError('Please install a browser provider')
@@ -107,7 +106,7 @@ const updateApartment = async (apartment) => {
 
   try {
     const contract = await getEthereumContracts()
-    tx = await contract.updateAppartment(
+    tx = await contract.updateApartment(
       apartment.id,
       apartment.name,
       apartment.description,
@@ -116,8 +115,8 @@ const updateApartment = async (apartment) => {
       apartment.rooms,
       toWei(apartment.price)
     )
-    await tx.wait()
 
+    await tx.wait()
     return Promise.resolve(tx)
   } catch (error) {
     reportError(error)
@@ -125,7 +124,7 @@ const updateApartment = async (apartment) => {
   }
 }
 
-const deleteApartment = async (aid) => {
+const deleteApartment = async (id) => {
   if (!ethereum) {
     reportError('Please install a browser provider')
     return Promise.reject(new Error('Browser provider not installed'))
@@ -133,9 +132,9 @@ const deleteApartment = async (aid) => {
 
   try {
     const contract = await getEthereumContracts()
-    tx = await contract.deleteAppartment(aid)
-    await tx.wait()
+    tx = await contract.deleteApartment(id)
 
+    await tx.wait()
     return Promise.resolve(tx)
   } catch (error) {
     reportError(error)
@@ -166,7 +165,7 @@ const bookApartment = async ({ aid, timestamps, amount }) => {
   }
 }
 
-const checkInApartment = async (aid, timestamps) => {
+const checkInApartment = async (aid, bookingId) => {
   if (!ethereum) {
     reportError('Please install a browser provider')
     return Promise.reject(new Error('Browser provider not installed'))
@@ -174,7 +173,7 @@ const checkInApartment = async (aid, timestamps) => {
 
   try {
     const contract = await getEthereumContracts()
-    tx = await contract.checkInApartment(aid, timestamps)
+    tx = await contract.checkInApartment(aid, bookingId)
 
     await tx.wait()
     const bookings = await getBookings(aid)
@@ -196,6 +195,27 @@ const refundBooking = async (aid, bookingId) => {
   try {
     const contract = await getEthereumContracts()
     tx = await contract.refundBooking(aid, bookingId)
+
+    await tx.wait()
+    const bookings = await getBookings(aid)
+
+    store.dispatch(setBookings(bookings))
+    return Promise.resolve(tx)
+  } catch (error) {
+    reportError(error)
+    return Promise.reject(error)
+  }
+}
+
+const claimFunds = async (aid, bookingId) => {
+  if (!ethereum) {
+    reportError('Please install a browser provider')
+    return Promise.reject(new Error('Browser provider not installed'))
+  }
+
+  try {
+    const contract = await getEthereumContracts()
+    tx = await contract.claimFunds(aid, bookingId)
 
     await tx.wait()
     const bookings = await getBookings(aid)
@@ -230,53 +250,62 @@ const addReview = async (aid, comment) => {
 }
 
 const structureAppartments = (appartments) =>
-  appartments.map((appartment) => ({
-    id: Number(appartment.id),
-    name: appartment.name,
-    owner: appartment.owner,
-    description: appartment.description,
-    location: appartment.location,
-    price: fromWei(appartment.price),
-    deleted: appartment.deleted,
-    images: appartment.images.split(','),
-    rooms: Number(appartment.rooms),
-    timestamp: Number(appartment.timestamp),
-    booked: appartment.booked,
-  }))
-
-const structuredBookings = (bookings) =>
-  bookings.map((booking) => ({
-    id: Number(booking.id),
-    aid: Number(booking.aid),
-    tenant: booking.tenant,
-    date: Number(booking.date),
-    price: fromWei(booking.price),
-    checked: booking.checked,
-    cancelled: booking.cancelled,
-  }))
+  appartments
+    .map((apartment) => ({
+      id: Number(apartment.id),
+      name: apartment.name,
+      owner: apartment.owner,
+      description: apartment.description,
+      location: apartment.location,
+      price: fromWei(apartment.price),
+      deleted: apartment.deleted,
+      images: apartment.images.split(','),
+      rooms: Number(apartment.rooms),
+      timestamp: Number(apartment.timestamp),
+      booked: apartment.booked,
+    }))
+    .sort((a, b) => b.timestamp - a.timestamp)
 
 const structuredReviews = (reviews) =>
-  reviews.map((review) => ({
-    id: Number(review.id),
-    aid: Number(review.aid),
-    text: review.reviewText,
-    owner: review.owner,
-    timestamp: Number(review.timestamp),
-  }))
+  reviews
+    .map((review) => ({
+      id: Number(review.id),
+      aid: Number(review.aid),
+      text: review.reviewText,
+      owner: review.owner,
+      timestamp: Number(review.timestamp),
+    }))
+    .sort((a, b) => b.timestamp - a.timestamp)
+
+const structuredBookings = (bookings) =>
+  bookings
+    .map((booking) => ({
+      id: Number(booking.id),
+      aid: Number(booking.aid),
+      tenant: booking.tenant,
+      date: Number(booking.date),
+      price: fromWei(booking.price),
+      checked: booking.checked,
+      cancelled: booking.cancelled,
+      abandoned: booking.abandoned,
+    }))
+    .sort((a, b) => b.date - a.date)
+    .reverse()
 
 export {
   getApartments,
   getApartment,
+  getReviews,
   getBookings,
+  getQualifiedReviewers,
   getBookedDates,
-  createApartment,
+  getSecurityFee,
   updateApartment,
+  createApartment,
   deleteApartment,
   bookApartment,
   checkInApartment,
   refundBooking,
+  claimFunds,
   addReview,
-  getReviews,
-  getQualifiedReviewers,
-  getSecurityFee,
 }
