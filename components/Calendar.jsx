@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import DatePicker from 'react-datepicker'
-import { FaEthereum } from 'react-icons/fa'
 import { bookApartment } from '@/services/blockchain'
 
 const Calendar = ({ apartment, timestamps }) => {
@@ -63,9 +62,8 @@ const Calendar = ({ apartment, timestamps }) => {
     >
       <div className="flex justify-between">
         <div className="flex justify-center items-center">
-          <FaEthereum className="text-lg text-gray-500" />
           <span className="text-lg text-gray-500">
-            {apartment?.price} <small>per night</small>
+            {apartment?.price} <small>ONI/night</small>
           </span>
         </div>
       </div>
