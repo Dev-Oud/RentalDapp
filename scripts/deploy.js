@@ -1,68 +1,53 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
+const { ethers } = require('hardhat')
+const fs = require('fs')
 
 async function deployContract() {
-  const taxPercent = 7;
-  const securityFeePercent = 5;
-  const oninoTokenAddress = process.env.ONINO_TOKEN_ADDRESS; // make sure this is set in your .env
+  let contract
+  const taxPercent = 7
+  const securityFee = 5
 
   try {
-    console.log("Deploying RentalDapp...");
+    contract = await ethers.deployContract('RentalDapp', [taxPercent, securityFee])
+    await contract.waitForDeployment()
 
-    // ✅ Get contract factory
-    const RentalDapp = await ethers.getContractFactory("RentalDapp");
-
-    // ✅ Deploy with correct constructor args order
-    const contract = await RentalDapp.deploy(
-      taxPercent,
-      securityFeePercent,
-      oninoTokenAddress
-    );
-
-    // ✅ Wait until deployed
-    await contract.waitForDeployment();
-
-    console.log("RentalDapp deployed successfully.");
-    return contract;
+    console.log('Contracts deployed successfully.')
+    return contract
   } catch (error) {
-    console.error("Error deploying contract:", error);
-    throw error;
+    console.error('Error deploying contracts:', error)
+    throw error
   }
 }
 
 async function saveContractAddress(contract) {
   try {
-    // ✅ Proper way to get deployed address in ethers v6
-    const deployedAddress = await contract.getAddress();
+    const address = JSON.stringify({ RentalDappContract: contract.target }, null, 4)
 
-    const addressJson = JSON.stringify(
-      {
-        RentalDappContract: deployedAddress,
-        PaymentToken: process.env.ONINO_TOKEN_ADDRESS, // 👀 save token for reference too
-      },
-      null,
-      4
-    );
-
-    fs.writeFileSync("./contracts/contractAddress.json", addressJson, "utf8");
-
-    console.log("Deployed contract address saved:", deployedAddress);
+    fs.writeFile('./contracts/contractAddress.json', address, 'utf8', (error) => {
+      if (error) {
+        console.error('Error saving contract address:', err)
+      } else {
+        console.log('Deployed contract address:', address)
+      }
+    })
   } catch (error) {
-    console.error("Error saving contract address:", error);
-    throw error;
+    console.error('Error saving contract address:', error)
+    throw error
   }
 }
 
 async function main() {
-  try {
-    const contract = await deployContract();
-    await saveContractAddress(contract);
+  let contract
 
-    console.log("Contract deployment completed successfully.");
+  try {
+    contract = await deployContract()
+    await saveContractAddress(contract)
+    console.log('Contract deployment completed successfully.')
   } catch (error) {
-    console.error("Unhandled error:", error);
-    process.exitCode = 1;
+    console.error('Unhandled error:', error)
   }
 }
 
-main();
+main().catch((error) => {
+  console.error('Unhandled error:', error)
+  process.exitCode = 1
+})

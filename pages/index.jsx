@@ -24,4 +24,5 @@ export const getServerSideProps = async () => {
       apartmentsData: JSON.parse(JSON.stringify(apartmentsData)),
     },
   }
+  
 }

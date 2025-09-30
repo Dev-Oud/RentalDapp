@@ -108,10 +108,10 @@ async function main() {
   let RentalDappContract
 
   try {
-    const contractAddress = fs.readFileSync('./contracts/contractAddress.json')
+    const contractAddress = fs.readFileSync('./contracts/contractAddress.json', 'utf8')
     const { RentalDappContract: RentalDappAddress } = JSON.parse(contractAddress)
 
-    RentalDappContract = await ethers.getContractAt('RentalDapp', RentalDappAddress)
+    RentalDappContract = await ethers.getContractAt('RentalDapp',RentalDappAddress)
     const dates = [1707225263613, 1707225282094, 1707225296144]
 
     // Process #1
@@ -124,7 +124,7 @@ async function main() {
     // await delay(2500)
 
     // Process #2
-     await bookApartments(RentalDappContract, 1, dates)
+    // await bookApartments(RentalDappContract, 1, dates)
 
     await getApartments(RentalDappContract)
 

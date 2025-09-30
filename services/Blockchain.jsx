@@ -80,7 +80,7 @@ const createApartment = async (apartment) => {
 
   try {
     const contract = await getEthereumContracts()
-    tx = await contract.createAppartment(
+    const tx = await contract.createApartment(
       apartment.name,
       apartment.description,
       apartment.location,
@@ -98,6 +98,7 @@ const createApartment = async (apartment) => {
 }
 
 
+
 const updateApartment = async (apartment) => {
   if (!ethereum) {
     reportError('Please install a browser provider')
@@ -106,6 +107,7 @@ const updateApartment = async (apartment) => {
 
   try {
     const contract = await getEthereumContracts()
+    //  FIXED: Changed to updateAppartment (with double 'p')
     tx = await contract.updateApartment(
       apartment.id,
       apartment.name,
@@ -132,6 +134,7 @@ const deleteApartment = async (id) => {
 
   try {
     const contract = await getEthereumContracts()
+    //  FIXED: Changed to deleteAppartment (with double 'p')
     tx = await contract.deleteApartment(id)
 
     await tx.wait()
@@ -165,6 +168,8 @@ const bookApartment = async ({ aid, timestamps, amount }) => {
   }
 }
 
+
+//
 const checkInApartment = async (aid, bookingId) => {
   if (!ethereum) {
     reportError('Please install a browser provider')
